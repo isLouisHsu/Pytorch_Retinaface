@@ -8,8 +8,9 @@ from collections import OrderedDict
 from models.net import MobileNetV1 as MobileNetV1
 from models.net import FPN as FPN
 from models.net import SSH as SSH
+from models import resnet
 
-
+import timm
 
 class ClassHead(nn.Module):
     def __init__(self,inchannels=512,num_anchors=3):
@@ -53,29 +54,51 @@ class RetinaFace(nn.Module):
         """
         super(RetinaFace,self).__init__()
         self.phase = phase
+        self.backbone_name = cfg['name']
         backbone = None
         if cfg['name'] == 'mobilenet0.25':
-            backbone = MobileNetV1()
-            if cfg['pretrain']:
-                checkpoint = torch.load("./weights/mobilenetV1X0.25_pretrain.tar", map_location=torch.device('cpu'))
-                from collections import OrderedDict
-                new_state_dict = OrderedDict()
-                for k, v in checkpoint['state_dict'].items():
-                    name = k[7:]  # remove module.
-                    new_state_dict[name] = v
-                # load params
-                backbone.load_state_dict(new_state_dict)
+            backbone = MobileNetV1(in_channels=cfg['in_channels'])
+        elif cfg['name'] == 'Resnet18':
+            backbone = resnet.resnet18(in_channels=cfg['in_channels'], pretrained=False)
+        elif cfg['name'] == 'Resnet34':
+            backbone = resnet.resnet34(in_channels=cfg['in_channels'], pretrained=False)
         elif cfg['name'] == 'Resnet50':
-            import torchvision.models as models
-            backbone = models.resnet50(pretrained=cfg['pretrain'])
+            backbone = resnet.resnet50(in_channels=cfg['in_channels'], pretrained=False)
+        elif cfg['name'] == 'Efficientnet-b0':
+            backbone = timm.create_model('tf_efficientnet_b0_ns', 
+                in_chans=cfg['in_channels'], pretrained=False)
+        elif cfg['name'] == 'Efficientnet-b4':
+            backbone = timm.create_model('tf_efficientnet_b4_ns', 
+                in_chans=cfg['in_channels'], pretrained=False)
 
-        self.body = _utils.IntermediateLayerGetter(backbone, cfg['return_layers'])
-        in_channels_stage2 = cfg['in_channel']
-        in_channels_list = [
-            in_channels_stage2 * 2,
-            in_channels_stage2 * 4,
-            in_channels_stage2 * 8,
-        ]
+        if cfg['pretrain'] is not None:
+            pretrain = torch.load(cfg['pretrain'], map_location=torch.device('cpu'))
+            if cfg['name'] == 'mobilenet0.25':
+                pretrain = {k[7:]: v for k, v in pretrain['state_dict'].items()}
+            to_train = backbone.state_dict()
+            for k, v in to_train.items():
+                w = pretrain.get(k, None)
+                if w is None: continue
+                if w.size() != v.size():
+                    pretrain.pop(k)
+            to_train.update(pretrain)
+            backbone.load_state_dict(to_train)
+
+        if self.backbone_name.startswith('Efficientnet'):
+            self.convs = backbone.as_sequential()[:3]
+            self.blocks = _utils.IntermediateLayerGetter(backbone.blocks, cfg['return_layers'])
+            if self.backbone_name == 'Efficientnet-b0':
+                in_channels_list = [40, 112, 320]
+            elif self.backbone_name == 'Efficientnet-b4':
+                in_channels_list = [56, 160, 448]
+        else:
+            self.body = _utils.IntermediateLayerGetter(backbone, cfg['return_layers'])
+            in_channels_stage2 = cfg['in_channel']
+            in_channels_list = [
+                in_channels_stage2 * 2,
+                in_channels_stage2 * 4,
+                in_channels_stage2 * 8,
+            ]
         out_channels = cfg['out_channel']
         self.fpn = FPN(in_channels_list, out_channels)
         self.ssh1 = SSH(out_channels, out_channels)
@@ -105,7 +128,11 @@ class RetinaFace(nn.Module):
         return landmarkhead
 
     def forward(self,inputs):
-        out = self.body(inputs)
+        if self.backbone_name.startswith('Efficientnet'):
+            inputs = self.convs(inputs)
+            out = self.blocks(inputs)
+        else:
+            out = self.body(inputs)
 
         # FPN
         fpn = self.fpn(out)

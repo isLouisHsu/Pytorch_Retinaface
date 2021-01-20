@@ -100,10 +100,10 @@ class FPN(nn.Module):
 
 
 class MobileNetV1(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels=3):
         super(MobileNetV1, self).__init__()
         self.stage1 = nn.Sequential(
-            conv_bn(3, 8, 2, leaky = 0.1),    # 3
+            conv_bn(in_channels, 8, 2, leaky = 0.1),
             conv_dw(8, 16, 1),   # 7
             conv_dw(16, 32, 2),  # 11
             conv_dw(32, 32, 1),  # 19
