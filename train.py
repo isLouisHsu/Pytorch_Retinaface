@@ -75,43 +75,40 @@ save_folder = args.save_folder
 valid_steps = args.valid_steps
 verbose_steps = args.verbose_steps
 
-net = RetinaFace(cfg=cfg)
-logger.info("Printing net...")
-logger.info(net)
-
-if args.resume_net is not None:
-    logger.info('Loading resume network...')
-    state_dict = torch.load(args.resume_net)
-    # create new OrderedDict that does not contain `module.`
-    from collections import OrderedDict
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        head = k[:7]
-        if head == 'module.':
-            name = k[7:] # remove `module.`
-        else:
-            name = k
-        new_state_dict[name] = v
-    net.load_state_dict(new_state_dict)
-
-if num_gpu > 1 and gpu_train:
-    net = torch.nn.DataParallel(net).cuda()
-else:
-    net = net.cuda()
-
-cudnn.benchmark = True
-
-
-# optimizer = optim.SGD(net.parameters(), lr=initial_lr, momentum=momentum, weight_decay=weight_decay)
-optimizer = optim.Adam(net.parameters(), lr=initial_lr, weight_decay=weight_decay)
-criterion = MultiBoxLoss(num_classes, 0.35, True, 0, True, 7, 0.35, False)
-
-priorbox = PriorBox(cfg, image_size=(img_dim, img_dim))
-with torch.no_grad():
-    priors = priorbox.forward()
-    priors = priors.cuda()
 
 def train():
+
+    net = RetinaFace(cfg=cfg)
+    logger.info("Printing net...")
+    logger.info(net)
+
+    if args.resume_net is not None:
+        logger.info('Loading resume network...')
+        state_dict = torch.load(args.resume_net)
+        # create new OrderedDict that does not contain `module.`
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            head = k[:7]
+            if head == 'module.':
+                name = k[7:] # remove `module.`
+            else:
+                name = k
+            new_state_dict[name] = v
+        net.load_state_dict(new_state_dict)
+
+    if num_gpu > 1 and gpu_train:
+        net = torch.nn.DataParallel(net).cuda()
+    else:
+        net = net.cuda()
+
+    cudnn.benchmark = True
+
+    priorbox = PriorBox(cfg, image_size=(img_dim, img_dim))
+    with torch.no_grad():
+        priors = priorbox.forward()
+        priors = priors.cuda()
+
     net.train()
     epoch = 0 + args.resume_epoch
     logger.info('Loading Dataset...')
@@ -125,6 +122,11 @@ def train():
     epoch_size = math.ceil(len(trainset) / batch_size)
     max_iter = max_epoch * epoch_size
     logger.info(f'max_epoch: {max_epoch:d} epoch_size: {epoch_size:d}, max_iter: {max_iter:d}')
+
+    # optimizer = optim.SGD(net.parameters(), lr=initial_lr, momentum=momentum, weight_decay=weight_decay)
+    optimizer = optim.Adam(net.parameters(), lr=initial_lr, weight_decay=weight_decay)
+    scheduler = _utils.get_linear_schedule_with_warmup(optimizer, int(0.1 * max_iter), max_iter)
+    criterion = MultiBoxLoss(num_classes, 0.35, True, 0, True, 7, 0.35, False)
 
     stepvalues = (cfg['decay1'] * epoch_size, cfg['decay2'] * epoch_size)
     step_index = 0
@@ -145,6 +147,7 @@ def train():
             epoch += 1
 
         if (valid_steps > 0) and (iteration > 0) and (iteration % valid_steps == 0):
+            net.eval()
             # validation
             loss_l_val = 0.
             loss_c_val = 0.
@@ -177,11 +180,12 @@ def train():
                 pth = save_folder + cfg['name']+ '_iter_' + str(iteration) + f'_{loss_val:.4f}_' + '.pth'
                 torch.save(net.state_dict(), pth)
                 logger.info(f'Best validating loss: {best_loss_val:.4f}, model saved as {pth:s})')
+            net.train()
 
         load_t0 = time.time()
-        if iteration in stepvalues:
-            step_index += 1
-        lr = adjust_learning_rate(optimizer, gamma, epoch, step_index, iteration, epoch_size)
+        # if iteration in stepvalues:
+        #     step_index += 1
+        # lr = adjust_learning_rate(optimizer, gamma, epoch, step_index, iteration, epoch_size)
 
         # load train data
         images, targets = next(batch_iterator)
@@ -197,6 +201,7 @@ def train():
         loss = cfg['loc_weight'] * loss_l + loss_c + loss_landm
         loss.backward()
         optimizer.step()
+        scheduler.step()
         load_t1 = time.time()
         batch_time = load_t1 - load_t0
         eta = int(batch_time * (max_iter - iteration))
@@ -205,7 +210,7 @@ def train():
                 .format(epoch, max_epoch, (iteration % epoch_size) + 1,
                 epoch_size, iteration + 1, max_iter, 
                 loss.item(), loss_l.item(), loss_c.item(), loss_landm.item(), 
-                lr, batch_time, str(datetime.timedelta(seconds=eta))))
+                scheduler.get_last_lr()[-1], batch_time, str(datetime.timedelta(seconds=eta))))
 
     # torch.save(net.state_dict(), save_folder + cfg['name'] + '_Final.pth')
     # torch.save(net.state_dict(), save_folder + 'Final_Retinaface.pth')
