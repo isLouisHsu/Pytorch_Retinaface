@@ -7,10 +7,13 @@ import cv2
 import numpy as np
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
+from data.data_augment import visualize
+from itertools import chain
 
 class WiderFaceDetection(data.Dataset):
-    def __init__(self, txt_path, preproc=None, mode='train', valid_size=0.2):
+    def __init__(self, txt_path, preproc=None, transformers=None, mode='train', valid_size=0.2):
         self.preproc = preproc
+        self.transformers = transformers
         imgs_path = []
         words = []
         f = open(txt_path,'r')
@@ -79,16 +82,55 @@ class WiderFaceDetection(data.Dataset):
                 annotation[0, 14] = 1
 
             annotations = np.append(annotations, annotation, axis=0)
-        target = np.array(annotations)
-        if self.preproc is not None:
-            img, target = self.preproc(img, target)
+        annotations = np.array(annotations)
+
+        if self.preproc:
+            img, annotations = self.preproc(img, annotations)
+
+        if self.transformers:
+            bboxes = [label[:4].tolist() for label in annotations]
+            category_ids = [0 for _ in range(len(bboxes))]
+            keypoints = [label[4: 14].reshape(-1, 2).tolist() for label in annotations]
+            keypoints_all = list(chain(*keypoints))
+            idx_with_landm = [i for i, kp in enumerate(keypoints_all) if kp[0] >= 0]
+            keypoints_all_dropped = np.array(keypoints_all)[idx_with_landm]
+            transformed = self.transformers(image=img, 
+                bboxes=bboxes, category_ids=category_ids, 
+                keypoints=keypoints_all_dropped
+            )
+
+            img_t = transformed['image']
+            bboxes_t = np.array(transformed['bboxes'])
+            keypoints_t = np.array(transformed['keypoints'])
+            # parse
+            keypoints_t_new = [[-1, -1] for i in range(len(keypoints_all))]
+            j = 0
+            for i, idx in enumerate(idx_with_landm):
+                # FIXME: 该扩增方法会丢失关键点
+                keypoints_t_new[idx] = keypoints_t[i]
+            keypoints_t = keypoints_t_new
+            keypoints_t = np.array(keypoints_t).reshape(-1, 5, 2)
+            # img = visualize(img, bboxes, keypoints)
+            # img = visualize(img_t, bboxes_t, keypoints_t)
+            # cv2.imshow('', img)
+            # cv2.waitKey(0)
+            
+            height, width, _ = img_t.shape
+            bboxes_t[:, 0::2] /= width
+            bboxes_t[:, 1::2] /= height
+            keypoints_t[..., 0] /= width
+            keypoints_t[..., 1] /= height
+            for i, (bbox, keypoint) in enumerate(zip(bboxes_t, keypoints_t)):
+                annotations[i, :4] = bbox
+                annotations[i, 4: 14] = keypoint.reshape(-1)
+            img = np.transpose((img_t - 127.5) / 128.0, (2, 0, 1))
 
         # plt.imshow(img.astype(np.uint8).transpose(1, 2, 0))
         # plt.show()
         # cv2.imshow('', img.astype(np.uint8).transpose(1, 2, 0))
         # cv2.waitKey(0)
 
-        return torch.from_numpy(img), target
+        return torch.from_numpy(img), annotations
 
 def detection_collate(batch):
     """Custom collate fn for dealing with batches of images that have a different

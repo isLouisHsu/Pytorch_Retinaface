@@ -206,6 +206,15 @@ def _resize_subtract_mean(image, insize, rgb_mean):
     return image.transpose(2, 0, 1)
 
 
+def _resize_maxmin(image, insize):
+    interp_methods = [cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_NEAREST, cv2.INTER_LANCZOS4]
+    interp_method = interp_methods[random.randrange(5)]
+    image = cv2.resize(image, (insize, insize), interpolation=interp_method)
+    image = image.astype(np.float32)
+    image = (image - 127.5) / 128.0
+    return image.transpose(2, 0, 1)
+
+
 class preproc(object):
 
     def __init__(self, img_dim, rgb_means):
@@ -227,7 +236,6 @@ class preproc(object):
         image_t = _resize_subtract_mean(image_t, self.img_dim, self.rgb_means)
         boxes_t[:, 0::2] /= width
         boxes_t[:, 1::2] /= height
-
         landm_t[:, 0::2] /= width
         landm_t[:, 1::2] /= height
 
@@ -255,7 +263,8 @@ class train_preproc(object):
         image_t, boxes_t, landm_t = _mirror(image_t, boxes_t, landm_t)
 
         height, width, _ = image_t.shape
-        image_t = _resize_subtract_mean(image_t, self.img_dim, self.rgb_means)
+        # image_t = _resize_subtract_mean(image_t, self.img_dim, self.rgb_means)
+        image_t = _resize_maxmin(image_t, self.img_dim)
         boxes_t[:, 0::2] /= width
         boxes_t[:, 1::2] /= height
         landm_t[:, 0::2] /= width
@@ -281,9 +290,10 @@ class valid_preproc(object):
 
         image_t, boxes_t, labels_t, landm_t, pad_image_flag = _crop(image, boxes, labels, landm, self.img_dim)
         image_t = _pad_to_square(image_t,self.rgb_means, pad_image_flag)
-        
+
         height, width, _ = image_t.shape
-        image_t = _resize_subtract_mean(image_t, self.img_dim, self.rgb_means)
+        # image_t = _resize_subtract_mean(image_t, self.img_dim, self.rgb_means)
+        image_t = _resize_maxmin(image_t, self.img_dim)
         boxes_t[:, 0::2] /= width
         boxes_t[:, 1::2] /= height
         landm_t[:, 0::2] /= width
@@ -293,3 +303,71 @@ class valid_preproc(object):
         targets_t = np.hstack((boxes_t, landm_t, labels_t))
 
         return image_t, targets_t
+
+
+import albumentations as A
+
+BOX_COLOR = (255, 0, 0)         # Red
+TEXT_COLOR = (255, 255, 255)    # White
+KEYPOINT_COLOR = (0, 255, 0)    # Green
+
+def vis_bbox(image, bbox, class_name=None, color=BOX_COLOR, thickness=2):
+    """Visualizes a single bounding box on the image"""
+    image = image.copy()
+
+    x_min, y_min, x_max, y_max = bbox
+   
+    cv2.rectangle(image, (int(x_min), int(y_min)), (int(x_max), int(y_max)), color, thickness)
+    
+    if class_name:
+        ((text_width, text_height), _) = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 0.35, 1)    
+        cv2.rectangle(image, (x_min, y_min - int(1.3 * text_height)), (x_min + text_width, y_min), color, -1)
+        cv2.putText(
+            image,
+            text=class_name,
+            org=(x_min, y_min - int(0.3 * text_height)),
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=0.35, 
+            color=TEXT_COLOR, 
+            lineType=cv2.LINE_AA,
+        )
+    return image
+
+def vis_keypoints(image, keypoints, color=KEYPOINT_COLOR, diameter=2):
+    image = image.copy()
+    for (x, y) in keypoints:
+        cv2.circle(image, (int(x), int(y)), diameter, color, -1)
+    return image
+
+def visualize(image, bboxes, keypoints):
+    image = image.copy()
+    for bbox, keypoint in zip(bboxes, keypoints):
+        image = vis_bbox(image, bbox)
+        image = vis_keypoints(image, keypoint)
+    return image
+
+def train_transformers(img_size):
+    return A.Compose([
+            A.RandomResizedCrop(img_size, img_size),
+            # A.Transpose(p=0.5),
+            A.HorizontalFlip(p=0.5),
+            # A.VerticalFlip(p=0.5),
+            A.ShiftScaleRotate(p=0.5),
+            # A.HueSaturationValue(hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.5),
+            A.ColorJitter(p=0.5),
+            A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.5),
+            # A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], max_pixel_value=255.0, p=1.0),
+            A.Cutout(p=0.5),
+        ], 
+        bbox_params=A.BboxParams('pascal_voc', label_fields=['category_ids']),
+        keypoint_params=A.KeypointParams('xy')
+    )
+
+def valid_transformers(img_size):
+    return A.Compose([
+            A.CenterCrop(img_size, img_size, p=1.0),
+            # A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], max_pixel_value=255.0, p=1.0),
+        ], 
+        bbox_params=A.BboxParams(format='pascal_voc', label_fields=['category_ids']),
+        keypoint_params=A.KeypointParams('xy')
+    )

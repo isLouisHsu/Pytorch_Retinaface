@@ -6,7 +6,10 @@ import torch.backends.cudnn as cudnn
 import argparse
 import torch.utils.data as data
 from tqdm import tqdm
-from data import WiderFaceDetection, detection_collate, preproc, train_preproc, valid_preproc, cfg_mnet, cfg_re18, cfg_re34, cfg_re50, cfg_eff_b0, cfg_eff_b4
+from data import (WiderFaceDetection, detection_collate, 
+    preproc, train_preproc, valid_preproc, 
+    train_transformers, valid_transformers,
+    cfg_mnet, cfg_re18, cfg_re34, cfg_re50, cfg_eff_b0, cfg_eff_b4)
 from layers.modules import MultiBoxLoss
 from layers.functions.prior_box import PriorBox
 import time
@@ -113,8 +116,10 @@ def train():
     epoch = 0 + args.resume_epoch
     logger.info('Loading Dataset...')
 
-    trainset = WiderFaceDetection(training_dataset, train_preproc(img_dim, rgb_mean), 'train')
-    validset = WiderFaceDetection(training_dataset, valid_preproc(img_dim, rgb_mean), 'valid')
+    trainset = WiderFaceDetection(training_dataset, preproc=train_preproc(img_dim, rgb_mean), mode='train')
+    validset = WiderFaceDetection(training_dataset, preproc=valid_preproc(img_dim, rgb_mean), mode='valid')
+    # trainset = WiderFaceDetection(training_dataset, transformers=train_transformers(img_dim), mode='train')
+    # validset = WiderFaceDetection(training_dataset, transformers=valid_transformers(img_dim), mode='valid')
     trainloader = data.DataLoader(trainset, batch_size, shuffle=True, num_workers=num_workers, collate_fn=detection_collate)
     validloader = data.DataLoader(validset, batch_size, shuffle=True, num_workers=num_workers, collate_fn=detection_collate)
     logger.info(f'Totally {len(trainset)} training samples and {len(validset)} validating samples.')
@@ -171,13 +176,13 @@ def train():
             loss_c_val /= len(validloader)
             loss_landm_val /= len(validloader)
             loss_val /= len(validloader)
-            logger.info('[Validating] Epoch:{}/{} || Epochiter: {}/{} || Total: {:.4f} Iter: {}/{} || Loc: {:.4f} Cla: {:.4f} Landm: {:.4f}'
+            logger.info('[Validating] Epoch:{}/{} || Epochiter: {}/{} || Iter: {}/{} || Total: {:.4f} Loc: {:.4f} Cla: {:.4f} Landm: {:.4f}'
                 .format(epoch, max_epoch, (iteration % epoch_size) + 1,
                 epoch_size, iteration + 1, max_iter, 
                 loss_val, loss_l_val, loss_c_val, loss_landm_val))
             if loss_val < best_loss_val:
                 best_loss_val = loss_val
-                pth = save_folder + cfg['name']+ '_iter_' + str(iteration) + f'_{loss_val:.4f}_' + '.pth'
+                pth = os.path.join(save_folder, cfg['name'] + '_iter_' + str(iteration) + f'_{loss_val:.4f}_' + '.pth')
                 torch.save(net.state_dict(), pth)
                 logger.info(f'Best validating loss: {best_loss_val:.4f}, model saved as {pth:s})')
             net.train()
