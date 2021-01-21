@@ -200,7 +200,7 @@ def train():
         load_t1 = time.time()
         batch_time = load_t1 - load_t0
         eta = int(batch_time * (max_iter - iteration))
-        if iteration % verbose_steps:
+        if iteration % verbose_steps == 0:
             logger.info('[Training] Epoch:{}/{} || Epochiter: {}/{} || Iter: {}/{} || Total: {:.4f} Loc: {:.4f} Cla: {:.4f} Landm: {:.4f} || LR: {:.8f} || Batchtime: {:.4f} s || ETA: {}'
                 .format(epoch, max_epoch, (iteration % epoch_size) + 1,
                 epoch_size, iteration + 1, max_iter, 
