@@ -5,12 +5,14 @@ import torch
 import torch.utils.data as data
 import cv2
 import numpy as np
+from sklearn.model_selection import train_test_split
+from matplotlib import pyplot as plt
 
 class WiderFaceDetection(data.Dataset):
-    def __init__(self, txt_path, preproc=None):
+    def __init__(self, txt_path, preproc=None, mode='train', valid_size=0.2):
         self.preproc = preproc
-        self.imgs_path = []
-        self.words = []
+        imgs_path = []
+        words = []
         f = open(txt_path,'r')
         lines = f.readlines()
         isFirst = True
@@ -22,17 +24,24 @@ class WiderFaceDetection(data.Dataset):
                     isFirst = False
                 else:
                     labels_copy = labels.copy()
-                    self.words.append(labels_copy)
+                    words.append(labels_copy)
                     labels.clear()
                 path = line[2:]
                 path = txt_path.replace('label.txt','images/') + path
-                self.imgs_path.append(path)
+                imgs_path.append(path)
             else:
                 line = line.split(' ')
                 label = [float(x) for x in line]
                 labels.append(label)
+        words.append(labels)
+        f.close()
 
-        self.words.append(labels)
+        # split training and validation data
+        all_idx = [i for i in range(len(imgs_path))]
+        train_idx, valid_idx = train_test_split(all_idx, test_size=0.2, shuffle=True)
+        idx = train_idx if mode == 'train' else valid_idx
+        self.imgs_path = [imgs_path[i] for i in idx]
+        self.words = [words[i] for i in idx]
 
     def __len__(self):
         return len(self.imgs_path)
@@ -73,6 +82,11 @@ class WiderFaceDetection(data.Dataset):
         target = np.array(annotations)
         if self.preproc is not None:
             img, target = self.preproc(img, target)
+
+        # plt.imshow(img.astype(np.uint8).transpose(1, 2, 0))
+        # plt.show()
+        # cv2.imshow('', img.astype(np.uint8).transpose(1, 2, 0))
+        # cv2.waitKey(0)
 
         return torch.from_numpy(img), target
 
