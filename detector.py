@@ -131,7 +131,6 @@ class RetinaFaceDetector(RetinaFace):
         # do NMS
         dets = np.hstack((boxes, scores[:, np.newaxis])).astype(np.float32, copy=False)
         keep = py_cpu_nms(dets, nms_threshold)
-        # keep = nms(dets, nms_threshold, force_cpu=cpu)
         dets = dets[keep, :]
         landms = landms[keep]
 
@@ -152,12 +151,14 @@ if __name__ == '__main__':
     from data import cfg_mnet, cfg_re18, cfg_re34, cfg_re50, cfg_eff_b0, cfg_eff_b4
 
     # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_Parade_0_275.jpg', cv2.IMREAD_COLOR)
-    image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_marchingband_1_1004.jpg', cv2.IMREAD_COLOR)
+    # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_marchingband_1_1004.jpg', cv2.IMREAD_COLOR)
+    image = cv2.imread('/home/louishsu/Desktop/0_Parade_marchingband_1_849.jpg', cv2.IMREAD_COLOR)
+    
     detector = RetinaFaceDetector(cfg=cfg_re18, weights_path='outputs/resnet18_v1/Resnet18_iter_21000_2.6661_.pth')
     
     timer = Timer()
     timer.tic()
-    scores, dets, landms = detector.detect(image)
+    scores, dets, landms = detector.detect(image, confidence_threshold=0.5)
     timer.toc()
     print(f"Cost {timer.total_time:f}s")
 
