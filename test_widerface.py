@@ -1,34 +1,44 @@
 from __future__ import print_function
 import os
+import cv2
 import argparse
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import numpy as np
-from data import cfg_mnet, cfg_re50
+from data import cfg_mnet, cfg_re18, cfg_re34, cfg_re50, cfg_eff_b0, cfg_eff_b4
 from layers.functions.prior_box import PriorBox
 from utils.nms.py_cpu_nms import py_cpu_nms
-import cv2
 from models.retinaface import RetinaFace
 from utils.box_utils import decode, decode_landm
 from utils.timer import Timer
-
+from utils._utils import seed_everything
 
 parser = argparse.ArgumentParser(description='Retinaface')
-parser.add_argument('-m', '--trained_model', default='./weights/Resnet50_Final.pth',
-                    type=str, help='Trained state_dict file path to open')
-parser.add_argument('--network', default='resnet50', help='Backbone network mobile0.25 or resnet50')
-parser.add_argument('--origin_size', default=True, type=str, help='Whether use origin image size to evaluate')
-parser.add_argument('--save_folder', default='./widerface_evaluate/widerface_txt/', type=str, help='Dir to save txt results')
+parser.add_argument('--seed', default=99)
+# parser.add_argument('-m', '--trained_model', required=True, type=str, 
+#                     help='Trained state_dict file path to open, eg. `./weights/Resnet50_Final.pth`')
+# parser.add_argument('--network', required=True, type=str, 
+#                     help='Backbone network mobile0.25 or resnet50, eg. `resnet50`')
+# parser.add_argument('--save_folder', required=True, type=str, 
+#                     help='Dir to save txt results, eg. `./widerface_evaluate/widerface_txt/`')
+parser.add_argument('-m', '--trained_model', default='outputs/resnet18_v1/Resnet18_iter_21000_2.6661_.pth', type=str, 
+                    help='Trained state_dict file path to open, eg. `./weights/Resnet50_Final.pth`')
+parser.add_argument('--network', default='resnet18', type=str, 
+                    help='Backbone network mobile0.25 or resnet50, eg. `resnet50`')
+parser.add_argument('--save_folder', default='./widerface_evaluate/predictions/', type=str, 
+                    help='Dir to save txt results, eg. `./widerface_evaluate/widerface_txt/`')
+parser.add_argument('--origin_size', default=False, type=str, help='Whether use origin image size to evaluate')
 parser.add_argument('--cpu', action="store_true", default=False, help='Use cpu inference')
-parser.add_argument('--dataset_folder', default='../data/widerface/WIDER_val/images', type=str, help='dataset path')
-parser.add_argument('--confidence_threshold', default=0.02, type=float, help='confidence_threshold')
+parser.add_argument('--dataset_folder', default='../data/widerface/WIDER_val/images/', type=str, help='dataset path')
+parser.add_argument('--confidence_threshold', default=0.6, type=float, help='confidence_threshold')
 parser.add_argument('--top_k', default=5000, type=int, help='top_k')
 parser.add_argument('--nms_threshold', default=0.4, type=float, help='nms_threshold')
 parser.add_argument('--keep_top_k', default=750, type=int, help='keep_top_k')
 parser.add_argument('-s', '--save_image', action="store_true", default=False, help='show detection results')
 parser.add_argument('--vis_thres', default=0.5, type=float, help='visualization_threshold')
 args = parser.parse_args()
-
+seed_everything(args.seed)
+args.save_folder = os.path.join(args.save_folder, args.network)
 
 def check_keys(model, pretrained_state_dict):
     ckpt_keys = set(pretrained_state_dict.keys())
@@ -66,14 +76,21 @@ def load_model(model, pretrained_path, load_to_cpu):
     return model
 
 
-if __name__ == '__main__':
-    torch.set_grad_enabled(False)
-
+@torch.no_grad()
+def main():
     cfg = None
     if args.network == "mobile0.25":
         cfg = cfg_mnet
+    elif args.network == "resnet18":
+        cfg = cfg_re18
+    elif args.network == "resnet34":
+        cfg = cfg_re34
     elif args.network == "resnet50":
         cfg = cfg_re50
+    elif args.network == "Efficientnet-b0":
+        cfg = cfg_eff_b0
+    elif args.network == "Efficientnet-b4":
+        cfg = cfg_eff_b4
     # net and model
     net = RetinaFace(cfg=cfg, phase = 'test')
     net = load_model(net, args.trained_model, args.cpu)
@@ -86,22 +103,30 @@ if __name__ == '__main__':
 
     # testing dataset
     testset_folder = args.dataset_folder
-    testset_list = args.dataset_folder[:-7] + "wider_val.txt"
-
-    with open(testset_list, 'r') as fr:
-        test_dataset = fr.read().split()
+    # testset_list = args.dataset_folder[:-7] + "wider_val.txt"
+    # with open(testset_list, 'r') as fr:
+    #     test_dataset = fr.read().split()
+    test_dataset = []
+    for event in os.listdir(testset_folder):
+        subdir = os.path.join(testset_folder, event)
+        img_names = os.listdir(subdir)
+        for img_name in img_names:
+            test_dataset.append([event, os.path.join(subdir, img_name)])
     num_images = len(test_dataset)
 
     _t = {'forward_pass': Timer(), 'misc': Timer()}
 
     # testing begin
-    for i, img_name in enumerate(test_dataset):
-        image_path = testset_folder + img_name
-        img_raw = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    for i, (event, img_name) in enumerate(test_dataset):
+        if i % 100 == 0:
+            torch.cuda.empty_cache()
+
+        # image_path = testset_folder + img_name
+        img_raw = cv2.imread(img_name, cv2.IMREAD_COLOR)
         img = np.float32(img_raw)
 
         # testing scale
-        target_size = 1600
+        target_size = 480
         max_size = 2150
         im_shape = img.shape
         im_size_min = np.min(im_shape[0:2])
@@ -117,7 +142,8 @@ if __name__ == '__main__':
             img = cv2.resize(img, None, None, fx=resize, fy=resize, interpolation=cv2.INTER_LINEAR)
         im_height, im_width, _ = img.shape
         scale = torch.Tensor([img.shape[1], img.shape[0], img.shape[1], img.shape[0]])
-        img -= (104, 117, 123)
+        img = (img - 127.5) / 128.0
+        # img -= (104, 117, 123)
         img = img.transpose(2, 0, 1)
         img = torch.from_numpy(img).unsqueeze(0)
         img = img.to(device)
@@ -171,7 +197,8 @@ if __name__ == '__main__':
         _t['misc'].toc()
 
         # --------------------------------------------------------------------
-        save_name = args.save_folder + img_name[:-4] + ".txt"
+        # save_name = args.save_folder + img_name[:-4] + ".txt"
+        save_name = os.path.join(args.save_folder, event, img_name.split('/')[-1].split('.')[0] + ".txt")
         dirname = os.path.dirname(save_name)
         if not os.path.isdir(dirname):
             os.makedirs(dirname)
@@ -217,3 +244,6 @@ if __name__ == '__main__':
             name = "./results/" + str(i) + ".jpg"
             cv2.imwrite(name, img_raw)
 
+
+if __name__ == "__main__":
+    main()

@@ -53,6 +53,7 @@ class RetinaFace(nn.Module):
         :param phase: train or test.
         """
         super(RetinaFace,self).__init__()
+        self.cfg = cfg
         self.phase = phase
         self.backbone_name = cfg['name']
         backbone = None

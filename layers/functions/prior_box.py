@@ -32,3 +32,11 @@ class PriorBox(object):
         if self.clip:
             output.clamp_(max=1, min=0)
         return output
+
+# cfg = {
+#     'min_sizes': [[16, 32], [64, 128], [256, 512]],
+#     'steps': [8, 16, 32],
+#     'clip': False,
+# }
+# pb = PriorBox(cfg, [480, 480])
+# pb.forward()

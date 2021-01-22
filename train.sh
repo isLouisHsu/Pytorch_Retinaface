@@ -1,1 +1,0 @@
-python train.py --network Efficientnet-b0

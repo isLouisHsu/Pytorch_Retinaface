@@ -150,6 +150,7 @@ def train():
             # if (epoch % 10 == 0 and epoch > 0) or (epoch % 5 == 0 and epoch > cfg['decay1']):
             #     torch.save(net.state_dict(), save_folder + cfg['name']+ '_epoch_' + str(epoch) + '.pth')
             epoch += 1
+            torch.cuda.empty_cache()
 
         if (valid_steps > 0) and (iteration > 0) and (iteration % valid_steps == 0):
             net.eval()

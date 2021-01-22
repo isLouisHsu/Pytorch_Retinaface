@@ -315,9 +315,9 @@ def vis_bbox(image, bbox, class_name=None, color=BOX_COLOR, thickness=2):
     """Visualizes a single bounding box on the image"""
     image = image.copy()
 
-    x_min, y_min, x_max, y_max = bbox
+    x_min, y_min, x_max, y_max = [int(x) for x in bbox]
    
-    cv2.rectangle(image, (int(x_min), int(y_min)), (int(x_max), int(y_max)), color, thickness)
+    cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color, thickness)
     
     if class_name:
         ((text_width, text_height), _) = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 0.35, 1)    
@@ -339,11 +339,14 @@ def vis_keypoints(image, keypoints, color=KEYPOINT_COLOR, diameter=2):
         cv2.circle(image, (int(x), int(y)), diameter, color, -1)
     return image
 
-def visualize(image, bboxes, keypoints):
+def visualize(image, bboxes=None, keypoints=None, scores=None):
     image = image.copy()
-    for bbox, keypoint in zip(bboxes, keypoints):
-        image = vis_bbox(image, bbox)
-        image = vis_keypoints(image, keypoint)
+    for i, (bbox, keypoint) in enumerate(zip(bboxes, keypoints)):
+        score = f'{scores[i]:.4f}' if scores is not None else None
+        if bboxes is not None:
+            image = vis_bbox(image, bbox, class_name=score)
+        if keypoints is not None:
+            image = vis_keypoints(image, keypoint)
     return image
 
 def train_transformers(img_size):

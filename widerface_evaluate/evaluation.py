@@ -13,6 +13,8 @@ import numpy as np
 from scipy.io import loadmat
 from bbox import bbox_overlaps
 from IPython import embed
+from collections import defaultdict
+from matplotlib import pyplot as plt
 
 
 def get_gt_boxes(gt_dir):
@@ -92,7 +94,7 @@ def read_pred_file(filepath):
     boxes = []
     for line in lines:
         line = line.rstrip('\r\n').split(' ')
-        if line[0] is '':
+        if line[0] == '':
             continue
         # a = float(line[4])
         boxes.append([float(line[0]), float(line[1]), float(line[2]), float(line[3]), float(line[4])])
@@ -225,14 +227,16 @@ def voc_ap(rec, prec):
 
 
 def evaluation(pred, gt_path, iou_thresh=0.5):
+    facebox_list, event_list, file_list, hard_gt_list, medium_gt_list, easy_gt_list = get_gt_boxes(gt_path)
     pred = get_preds(pred)
     norm_score(pred)
-    facebox_list, event_list, file_list, hard_gt_list, medium_gt_list, easy_gt_list = get_gt_boxes(gt_path)
     event_num = len(event_list)
     thresh_num = 1000
     settings = ['easy', 'medium', 'hard']
     setting_gts = [easy_gt_list, medium_gt_list, hard_gt_list]
     aps = []
+
+    plt.figure()
     for setting_id in range(3):
         # different setting
         gt_list = setting_gts[setting_id]
@@ -271,6 +275,9 @@ def evaluation(pred, gt_path, iou_thresh=0.5):
         propose = pr_curve[:, 0]
         recall = pr_curve[:, 1]
 
+        plt.subplot(int(f'31{setting_id + 1:d}'))
+        plt.plot(recall, propose)
+
         ap = voc_ap(recall, propose)
         aps.append(ap)
 
@@ -280,11 +287,13 @@ def evaluation(pred, gt_path, iou_thresh=0.5):
     print("Hard   Val AP: {}".format(aps[2]))
     print("=================================================")
 
+    plt.show()
+
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--pred', default="./widerface_txt/")
+    parser.add_argument('-p', '--pred', default="./predictions/resnet18/")
     parser.add_argument('-g', '--gt', default='./ground_truth/')
 
     args = parser.parse_args()
