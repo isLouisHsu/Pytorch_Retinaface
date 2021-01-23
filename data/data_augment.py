@@ -189,10 +189,13 @@ def _mirror(image, boxes, landms):
 def _pad_to_square(image, rgb_mean, pad_image_flag):
     if not pad_image_flag:
         return image
-    height, width, _ = image.shape
+    height, width, channels = image.shape
     long_side = max(width, height)
-    image_t = np.empty((long_side, long_side, 3), dtype=image.dtype)
-    image_t[:, :] = rgb_mean
+    image_t = np.empty((long_side, long_side, channels), dtype=image.dtype)
+    if channels == 3:
+        image_t[:, :] = rgb_mean
+    else:
+        image_t[:, :] = 0
     image_t[0:0 + height, 0:0 + width] = image
     return image_t
 
@@ -258,7 +261,8 @@ class train_preproc(object):
         landm = targets[:, 4:-1].copy()
 
         image_t, boxes_t, labels_t, landm_t, pad_image_flag = _crop(image, boxes, labels, landm, self.img_dim)
-        image_t = _distort(image_t)
+        if image_t.shape[-1] == 3:
+            image_t = _distort(image_t)
         image_t = _pad_to_square(image_t,self.rgb_means, pad_image_flag)
         image_t, boxes_t, landm_t = _mirror(image_t, boxes_t, landm_t)
 

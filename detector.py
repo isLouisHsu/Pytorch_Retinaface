@@ -136,8 +136,8 @@ class RetinaFaceDetector(RetinaFace):
         landms = landms[keep]
 
         # keep top-K faster NMS
-        # dets = dets[:keep_top_k, :]
-        # landms = landms[:keep_top_k, :]
+        dets = dets[:keep_top_k, :]
+        landms = landms[:keep_top_k, :]
 
         # dets = np.concatenate((dets, landms), axis=1)
         scores = dets[:, -1]                    # (N,)
@@ -152,12 +152,22 @@ if __name__ == '__main__':
     from data.data_augment import visualize
     from data import cfg_mnet, cfg_re18, cfg_re34, cfg_re50, cfg_eff_b0, cfg_eff_b4
 
-    with torch.no_grad():
-        for cfg in [cfg_re18, cfg_re34]:
-        # for cfg in [cfg_eff_b0, cfg_eff_b4]:
-            model = RetinaFaceDetector(cfg, device='cpu')
-            # model(torch.rand(1, 3, 480, 480))
-            stat(model, input_size=(3, 480, 480))
+    # with torch.no_grad():
+    #     # for cfg in [cfg_re18, cfg_re34]:
+    #     # for cfg in [cfg_eff_b0, cfg_eff_b4]:
+    #     for cfg in [cfg_re18, cfg_re34, cfg_eff_b0, cfg_eff_b4]:
+    #         model = RetinaFaceDetector(cfg, device='cpu')
+    #         # model(torch.rand(1, 3, 480, 480))
+    #         # stat(model, input_size=(3, 480, 480))
+
+    #         model = model.cuda()
+    #         x = torch.rand(1, 3, 480, 480).cuda()
+    #         timer = Timer()
+    #         for i in range(100):
+    #             timer.tic()
+    #             model(x)
+    #             timer.toc()
+    #         print(f'average_time: {timer.average_time}, fps: {1 / timer.average_time}')
 
     # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_Parade_0_275.jpg', cv2.IMREAD_COLOR)
     # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_marchingband_1_1004.jpg', cv2.IMREAD_COLOR)

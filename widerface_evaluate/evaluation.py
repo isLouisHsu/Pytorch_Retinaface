@@ -296,8 +296,8 @@ def evaluation(pred_path, gt_path, iou_thresh=0.5):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    # parser.add_argument('-p', '--pred', default="./predictions/resnet18/")
-    parser.add_argument('-p', '--pred', default="Resnet18_iter_17000_3.0301_/resnet18/")
+    parser.add_argument('-p', '--pred', default="./predictions/resnet18/")
+    # parser.add_argument('-p', '--pred', default="Resnet18_iter_17000_3.0301_/resnet18/")
     parser.add_argument('-g', '--gt', default='./ground_truth/')
 
     args = parser.parse_args()

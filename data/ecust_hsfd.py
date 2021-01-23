@@ -10,12 +10,26 @@ from matplotlib import pyplot as plt
 from data.data_augment import visualize
 from itertools import chain
 
-class WiderFaceDetection(data.Dataset):
+def load_datacube(datadir, bright_off=0):
+    imgs = []
+    for i in range(1, 26):
+        filename = os.path.join(datadir, f'{i}.jpg')
+        img = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+        imgs.append(img)
+    imgs = np.stack(imgs)
+    imgs = imgs + bright_off
+    imgs[imgs > 255] = 255
+    imgs[imgs < 0] = 0
+    return imgs
+
+class EcustHsfdDetection(data.Dataset):
     def __init__(self, txt_path, 
+            used_channels,
             preproc=None, transformers=None, 
             mode='train', valid_size=0.2,
-            label_file='label.txt', image_dir='images/'
+            label_file='labels.txt', image_dir='Original_Image_jpg/',
     ):
+        self.used_channels = [c - 1 for c in used_channels]
         self.preproc = preproc
         self.transformers = transformers
         imgs_path = []
@@ -54,7 +68,8 @@ class WiderFaceDetection(data.Dataset):
         return len(self.imgs_path)
 
     def __getitem__(self, index):
-        img = cv2.imread(self.imgs_path[index])
+        # img = cv2.imread(self.imgs_path[index])
+        img = load_datacube(self.imgs_path[index])[..., self.used_channels]
         height, width, _ = img.shape
 
         labels = self.words[index]
@@ -136,7 +151,7 @@ class WiderFaceDetection(data.Dataset):
 
         return torch.from_numpy(img), annotations
 
-def detection_collate(batch):
+def detection_collate_hsfd(batch):
     """Custom collate fn for dealing with batches of images that have a different
     number of associated object annotations (bounding boxes).
 

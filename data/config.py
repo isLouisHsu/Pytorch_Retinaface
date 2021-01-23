@@ -9,12 +9,12 @@ cfg_mnet = {
     'clip': False,
     'loc_weight': 2.0,
     'gpu_train': True,
-    'batch_size': 32,
+    'batch_size': 64,
     'ngpu': 1,
-    'epoch': 250,
+    'epoch': 200,
     'decay1': 190,
     'decay2': 220,
-    'image_size': 640,
+    'image_size': 480,
     'pretrain': "./weights/pretrained/mobilenetV1X0.25_pretrain.tar",
     'return_layers': {'stage1': 1, 'stage2': 2, 'stage3': 3},
     'in_channel': 32,
@@ -125,5 +125,53 @@ cfg_eff_b4 = {
     'pretrain': "/home/louishsu/.cache/torch/hub/checkpoints/tf_efficientnet_b4_ns-d6313a46.pth",
     'return_layers': {'2': 3, '4': 5, '6': 7},
     'in_channel': None,
+    'out_channel': 256
+}
+
+# --------------------------------------------------------------------------------------
+
+cfg_re34_hsfd_finetune = {
+    'name': 'Resnet34',
+    'used_channels': [12, 19, 13, 6, 3],
+    'in_channels': 5,
+    'min_sizes': [[16, 32], [64, 128], [256, 512]],
+    'steps': [8, 16, 32],
+    'variance': [0.1, 0.2],
+    'clip': False,
+    'loc_weight': 2.0,
+    'gpu_train': True,
+    'batch_size': 32,
+    'ngpu': 1,
+    'epoch': 100,
+    'decay1': 70,
+    'decay2': 90,
+    'image_size': 320,
+    'pretrain': "/home/louishsu/.cache/torch/hub/checkpoints/resnet34-333f7ec4.pth",
+    'finetune': "outputs/resnet34_v1/Resnet34_iter_21000_2.5562_.pth",
+    'return_layers': {'layer2': 1, 'layer3': 2, 'layer4': 3},
+    'in_channel': 64,
+    'out_channel': 256
+}
+
+cfg_re34_hsfd_not_finetune = {
+    'name': 'Resnet34',
+    'used_channels': [12, 19, 13, 6, 3],
+    'in_channels': 5,
+    'min_sizes': [[16, 32], [64, 128], [256, 512]],
+    'steps': [8, 16, 32],
+    'variance': [0.1, 0.2],
+    'clip': False,
+    'loc_weight': 2.0,
+    'gpu_train': True,
+    'batch_size': 32,
+    'ngpu': 1,
+    'epoch': 100,
+    'decay1': 70,
+    'decay2': 90,
+    'image_size': 320,
+    'pretrain': "/home/louishsu/.cache/torch/hub/checkpoints/resnet34-333f7ec4.pth",
+    'finetune': None,
+    'return_layers': {'layer2': 1, 'layer3': 2, 'layer4': 3},
+    'in_channel': 64,
     'out_channel': 256
 }

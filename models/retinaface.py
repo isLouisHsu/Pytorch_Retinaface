@@ -110,6 +110,17 @@ class RetinaFace(nn.Module):
         self.BboxHead = self._make_bbox_head(fpn_num=3, inchannels=cfg['out_channel'])
         self.LandmarkHead = self._make_landmark_head(fpn_num=3, inchannels=cfg['out_channel'])
 
+        if cfg.get('finetune', None) is not None:
+            pretrain = torch.load(cfg['finetune'], map_location=torch.device('cpu'))
+            to_train = self.state_dict()
+            for k, v in to_train.items():
+                w = pretrain.get(k, None)
+                if w is None: continue
+                if w.size() != v.size():
+                    pretrain.pop(k)
+            to_train.update(pretrain)
+            self.load_state_dict(to_train)
+
     def _make_class_head(self,fpn_num=3,inchannels=64,anchor_num=2):
         classhead = nn.ModuleList()
         for i in range(fpn_num):
