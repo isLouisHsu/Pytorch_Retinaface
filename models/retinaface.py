@@ -121,6 +121,10 @@ class RetinaFace(nn.Module):
             to_train.update(pretrain)
             self.load_state_dict(to_train)
 
+            for name, param in self.named_parameters():
+                if name in pretrain:
+                    param.requires_grad = False
+
     def _make_class_head(self,fpn_num=3,inchannels=64,anchor_num=2):
         classhead = nn.ModuleList()
         for i in range(fpn_num):

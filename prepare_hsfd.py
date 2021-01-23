@@ -33,6 +33,11 @@ def main(args):
             scores, dets, landms = detector.detect(image_, keep_top_k=1)
             if scores.size == 0: continue
 
+            # image_ = visualize(np.repeat(image[..., [11]], 3, axis=-1), dets, landms, scores)
+            # cv2.imshow('', image_)
+            # cv2.imwrite('/home/louishsu/Desktop/1111111111.jpg', image_)
+            # cv2.waitKey(0)
+
             scores = scores[0]
             dets = dets[0].reshape(-1).astype(np.int).tolist()
             dets[2] -= dets[0]; dets[3] -= dets[1]
@@ -46,10 +51,6 @@ def main(args):
             image_path = sample.image_path.lstrip(args.datadir)
             fp1.write(f'# {image_path:s}\n')
             fp1.write(f'{label}\n')
-
-            # image_ = visualize(image_, dets, landms, scores)
-            # cv2.imshow('', image_)
-            # cv2.waitKey(0)
 
             is_detected = True
             break

@@ -212,7 +212,13 @@ def _resize_subtract_mean(image, insize, rgb_mean):
 def _resize_maxmin(image, insize):
     interp_methods = [cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_NEAREST, cv2.INTER_LANCZOS4]
     interp_method = interp_methods[random.randrange(5)]
-    image = cv2.resize(image, (insize, insize), interpolation=interp_method)
+    if image.shape[-1] == 3:
+        image = cv2.resize(image, (insize, insize), interpolation=interp_method)
+    else:
+        image = np.stack([
+            cv2.resize(image[..., i], (insize, insize), interpolation=interp_method) \
+            for i in range(image.shape[-1])
+        ], axis=-1)
     image = image.astype(np.float32)
     image = (image - 127.5) / 128.0
     return image.transpose(2, 0, 1)

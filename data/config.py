@@ -142,7 +142,7 @@ cfg_re34_hsfd_finetune = {
     'gpu_train': True,
     'batch_size': 32,
     'ngpu': 1,
-    'epoch': 100,
+    'epoch': 20,
     'decay1': 70,
     'decay2': 90,
     'image_size': 320,

@@ -149,8 +149,8 @@ class RetinaFaceDetector(RetinaFace):
 if __name__ == '__main__':
 
     from torchstat import stat
-    from data.data_augment import visualize
-    from data import cfg_mnet, cfg_re18, cfg_re34, cfg_re50, cfg_eff_b0, cfg_eff_b4
+    from data import visualize, load_datacube
+    from data import cfg_mnet, cfg_re18, cfg_re34, cfg_re50, cfg_eff_b0, cfg_eff_b4, cfg_re34_hsfd_finetune
 
     # with torch.no_grad():
     #     # for cfg in [cfg_re18, cfg_re34]:
@@ -169,21 +169,33 @@ if __name__ == '__main__':
     #             timer.toc()
     #         print(f'average_time: {timer.average_time}, fps: {1 / timer.average_time}')
 
-    # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_Parade_0_275.jpg', cv2.IMREAD_COLOR)
-    # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_marchingband_1_1004.jpg', cv2.IMREAD_COLOR)
-    image = cv2.imread('/home/louishsu/Desktop/0_Parade_marchingband_1_849.jpg', cv2.IMREAD_COLOR)
-    
-    # detector = RetinaFaceDetector(cfg=cfg_re18, weights_path='outputs/resnet18_v1/Resnet18_iter_21000_2.6661_.pth')
-    detector = RetinaFaceDetector(cfg=cfg_eff_b0, weights_path='outputs/Efficientnet-b0_v1/Efficientnet-b0_iter_85000_2.9441_.pth')
+    # # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_Parade_0_275.jpg', cv2.IMREAD_COLOR)
+    # # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_marchingband_1_1004.jpg', cv2.IMREAD_COLOR)
+    # image = cv2.imread('/home/louishsu/Desktop/0_Parade_marchingband_1_849.jpg', cv2.IMREAD_COLOR)
+    # # detector = RetinaFaceDetector(cfg=cfg_re18, weights_path='outputs/resnet18_v1/Resnet18_iter_21000_2.6661_.pth')
+    # detector = RetinaFaceDetector(cfg=cfg_eff_b0, weights_path='outputs/Efficientnet-b0_v1/Efficientnet-b0_iter_85000_2.9441_.pth')
+
+    # timer = Timer()
+    # timer.tic()
+    # scores, dets, landms = detector.detect(image, confidence_threshold=0.5)
+    # timer.toc()
+    # print(f"Cost {timer.total_time:f}s")
+
+    # image = visualize(image, dets, landms, scores)
+    # cv2.imwrite('/home/louishsu/Desktop/res.jpg', image)
+    # cv2.imshow('', image)
+    # cv2.waitKey(0)
+
+    image = load_datacube('/home/louishsu/Code/Post-graduate-Graduation-Project/data/ecust_hsfd/Original_Image_jpg_indoor/Original_Image_jpg/3/multi/normal/Multi_4_W1_1/1/')
+    detector = RetinaFaceDetector(cfg=cfg_re34_hsfd_finetune, weights_path='outputs/resnet34_hsfd_with_finetune/Resnet34_iter_1200_0.2563_.pth')
 
     timer = Timer()
     timer.tic()
-    scores, dets, landms = detector.detect(image, confidence_threshold=0.5)
+    scores, dets, landms = detector.detect(image[..., cfg_re34_hsfd_finetune['used_channels']], confidence_threshold=0.5)
     timer.toc()
     print(f"Cost {timer.total_time:f}s")
 
-    image = visualize(image, dets, landms, scores)
-
-    cv2.imwrite('/home/louishsu/Desktop/res.jpg', image)
-    cv2.imshow('', image)
+    image_vis = visualize(np.repeat(image[..., [11]], 3, axis=-1), dets, landms, scores)
+    cv2.imwrite('/home/louishsu/Desktop/res.jpg', image_vis)
+    cv2.imshow('', image_vis)
     cv2.waitKey(0)

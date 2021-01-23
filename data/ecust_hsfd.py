@@ -16,7 +16,7 @@ def load_datacube(datadir, bright_off=0):
         filename = os.path.join(datadir, f'{i}.jpg')
         img = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
         imgs.append(img)
-    imgs = np.stack(imgs)
+    imgs = np.stack(imgs, axis=-1)
     imgs = imgs + bright_off
     imgs[imgs > 255] = 255
     imgs[imgs < 0] = 0
@@ -146,7 +146,7 @@ class EcustHsfdDetection(data.Dataset):
 
         # plt.imshow(img.astype(np.uint8).transpose(1, 2, 0))
         # plt.show()
-        # cv2.imshow('', img.astype(np.uint8).transpose(1, 2, 0))
+        # cv2.imshow('', np.repeat((img * 128. + 127.5).astype(np.uint8).transpose(1, 2, 0)[..., [0]], 3, axis=-1))
         # cv2.waitKey(0)
 
         return torch.from_numpy(img), annotations

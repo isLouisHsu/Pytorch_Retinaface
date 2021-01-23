@@ -26,7 +26,7 @@ parser.add_argument('--seed', default=99)
 parser.add_argument('--version', default='with_finetune', help='finetune')
 parser.add_argument('--training_dataset', default='../data/ecust_hsfd/Original_Image_jpg_indoor/labels.txt', help='Training dataset directory')
 parser.add_argument('--network', default='resnet34_hsfd', help='Backbone network mobile0.25 or resnet50')
-parser.add_argument('--num_workers', default=4, type=int, help='Number of workers used in dataloading')
+parser.add_argument('--num_workers', default=1, type=int, help='Number of workers used in dataloading')
 parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float, help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--resume_net', default=None, help='resume net for retraining')
@@ -34,7 +34,7 @@ parser.add_argument('--resume_epoch', default=0, type=int, help='resume iter for
 parser.add_argument('--weight_decay', default=5e-4, type=float, help='Weight decay for SGD')
 parser.add_argument('--gamma', default=0.1, type=float, help='Gamma update for SGD')
 parser.add_argument('--save_folder', default='./outputs/', help='Location to save checkpoint models')
-parser.add_argument('--valid_steps', default=200, help='Validation steps')
+parser.add_argument('--valid_steps', default=100, help='Validation steps')
 parser.add_argument('--verbose_steps', default=100, help='Validation steps')
 args = parser.parse_args()
 
@@ -131,7 +131,21 @@ def train():
     logger.info(f'max_epoch: {max_epoch:d} epoch_size: {epoch_size:d}, max_iter: {max_iter:d}')
 
     # optimizer = optim.SGD(net.parameters(), lr=initial_lr, momentum=momentum, weight_decay=weight_decay)
-    optimizer = optim.Adam(net.parameters(), lr=initial_lr, weight_decay=weight_decay)
+    # parameters = net.parameters()
+    # parameters = [param for param in net.parameters() if param.requires_grad]
+    reinit_params = []
+    finetune_params = []
+    for param in net.parameters():
+        if param.requires_grad:
+            reinit_params.append(param)
+        else:
+            param.requires_grad = True
+            finetune_params.append(param)
+    parameters = [
+        {'params': reinit_params, 'lr': initial_lr * 1.},
+        {'params': finetune_params, 'lr': initial_lr * 0.1},
+    ]
+    optimizer = optim.Adam(parameters, lr=initial_lr, weight_decay=weight_decay)
     scheduler = _utils.get_linear_schedule_with_warmup(optimizer, int(0.1 * max_iter), max_iter)
     criterion = MultiBoxLoss(num_classes, 0.35, True, 0, True, 7, 0.35, False)
 
