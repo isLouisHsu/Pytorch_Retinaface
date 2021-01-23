@@ -104,7 +104,7 @@ def read_pred_file(filepath):
 
 
 def get_preds(pred_dir):
-    events = os.listdir(pred_dir)
+    events = [event for event in os.listdir(pred_dir) if os.path.isdir(os.path.join(pred_dir, event))]
     boxes = dict()
     pbar = tqdm.tqdm(events)
 
@@ -226,9 +226,9 @@ def voc_ap(rec, prec):
     return ap
 
 
-def evaluation(pred, gt_path, iou_thresh=0.5):
+def evaluation(pred_path, gt_path, iou_thresh=0.5):
     facebox_list, event_list, file_list, hard_gt_list, medium_gt_list, easy_gt_list = get_gt_boxes(gt_path)
-    pred = get_preds(pred)
+    pred = get_preds(pred_path)
     norm_score(pred)
     event_num = len(event_list)
     thresh_num = 1000
@@ -236,7 +236,7 @@ def evaluation(pred, gt_path, iou_thresh=0.5):
     setting_gts = [easy_gt_list, medium_gt_list, hard_gt_list]
     aps = []
 
-    plt.figure()
+    # plt.figure()
     for setting_id in range(3):
         # different setting
         gt_list = setting_gts[setting_id]
@@ -275,8 +275,11 @@ def evaluation(pred, gt_path, iou_thresh=0.5):
         propose = pr_curve[:, 0]
         recall = pr_curve[:, 1]
 
-        plt.subplot(int(f'31{setting_id + 1:d}'))
-        plt.plot(recall, propose)
+        # plt.subplot(int(f'31{setting_id + 1:d}'))
+        # plt.plot(recall, propose)
+        # print(propose, recall)
+        np.savetxt(os.path.join(pred_path, f'propose_{settings[setting_id]}.txt'), propose)
+        np.savetxt(os.path.join(pred_path, f'recall_{settings[setting_id]}.txt'), recall)
 
         ap = voc_ap(recall, propose)
         aps.append(ap)
@@ -287,13 +290,14 @@ def evaluation(pred, gt_path, iou_thresh=0.5):
     print("Hard   Val AP: {}".format(aps[2]))
     print("=================================================")
 
-    plt.show()
+    # plt.show()
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--pred', default="./predictions/resnet18/")
+    # parser.add_argument('-p', '--pred', default="./predictions/resnet18/")
+    parser.add_argument('-p', '--pred', default="Resnet18_iter_17000_3.0301_/resnet18/")
     parser.add_argument('-g', '--gt', default='./ground_truth/')
 
     args = parser.parse_args()

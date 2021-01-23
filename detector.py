@@ -46,11 +46,12 @@ def load_model(model, pretrained_path, load_to_cpu):
 
 class RetinaFaceDetector(RetinaFace):
 
-    def __init__(self, cfg, weights_path, device='cuda:0'):
+    def __init__(self, cfg, weights_path=None, device='cuda:0'):
         super().__init__(cfg, phase='test')
         self.device = torch.device(device)
-        self = load_model(self, weights_path, True) \
-            .to(self.device).eval()
+        self = self.to(self.device).eval()
+        if weights_path:
+            self = load_model(self, weights_path, True)
         
     def _process_image(self, img, origin_size=True, target_size=480, max_size=2150):
         im_shape = img.shape        # (H, W, C)
@@ -147,15 +148,24 @@ class RetinaFaceDetector(RetinaFace):
 
 if __name__ == '__main__':
 
+    from torchstat import stat
     from data.data_augment import visualize
     from data import cfg_mnet, cfg_re18, cfg_re34, cfg_re50, cfg_eff_b0, cfg_eff_b4
+
+    with torch.no_grad():
+        for cfg in [cfg_re18, cfg_re34]:
+        # for cfg in [cfg_eff_b0, cfg_eff_b4]:
+            model = RetinaFaceDetector(cfg, device='cpu')
+            # model(torch.rand(1, 3, 480, 480))
+            stat(model, input_size=(3, 480, 480))
 
     # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_Parade_0_275.jpg', cv2.IMREAD_COLOR)
     # image = cv2.imread('../data/widerface/WIDER_val/images/0--Parade/0_Parade_marchingband_1_1004.jpg', cv2.IMREAD_COLOR)
     image = cv2.imread('/home/louishsu/Desktop/0_Parade_marchingband_1_849.jpg', cv2.IMREAD_COLOR)
     
-    detector = RetinaFaceDetector(cfg=cfg_re18, weights_path='outputs/resnet18_v1/Resnet18_iter_21000_2.6661_.pth')
-    
+    # detector = RetinaFaceDetector(cfg=cfg_re18, weights_path='outputs/resnet18_v1/Resnet18_iter_21000_2.6661_.pth')
+    detector = RetinaFaceDetector(cfg=cfg_eff_b0, weights_path='outputs/Efficientnet-b0_v1/Efficientnet-b0_iter_85000_2.9441_.pth')
+
     timer = Timer()
     timer.tic()
     scores, dets, landms = detector.detect(image, confidence_threshold=0.5)
