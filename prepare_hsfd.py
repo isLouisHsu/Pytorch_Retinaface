@@ -42,6 +42,7 @@ def main(args):
             dets = dets[0].reshape(-1).astype(np.int).tolist()
             dets[2] -= dets[0]; dets[3] -= dets[1]
             landms = np.concatenate([landms[0], np.zeros((5, 1))], axis=-1).reshape(-1).tolist()
+            
             label = [0. for _ in range(20)]
             label[-1] = scores
             label[:4] = dets

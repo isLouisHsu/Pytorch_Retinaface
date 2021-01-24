@@ -32,6 +32,7 @@ class EcustHsfdDetection(data.Dataset):
         self.used_channels = [c - 1 for c in used_channels]
         self.preproc = preproc
         self.transformers = transformers
+        
         imgs_path = []
         words = []
         f = open(txt_path,'r')
@@ -59,7 +60,7 @@ class EcustHsfdDetection(data.Dataset):
 
         # split training and validation data
         all_idx = [i for i in range(len(imgs_path))]
-        train_idx, valid_idx = train_test_split(all_idx, test_size=0.2, shuffle=True)
+        train_idx, valid_idx = train_test_split(all_idx, test_size=valid_size, shuffle=True)
         idx = train_idx if mode == 'train' else valid_idx
         self.imgs_path = [imgs_path[i] for i in idx]
         self.words = [words[i] for i in idx]

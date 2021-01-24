@@ -127,3 +127,29 @@ author={Deng, Jiankang and Guo, Jia and Yuxiang, Zhou and Jinke Yu and Irene Kot
 booktitle={arxiv},
 year={2019}
 ```
+
+---
+
+``` sh
+$ bash scripts/train.sh
+$ ls outputs/
+Efficientnet-b0_v1  Efficientnet-b4_v1  resnet18_v1  resnet34_v1
+
+$ bash scripts/test_widerface.sh
+$ ls widerface_evaluate/predictions/
+Efficientnet-b0  Efficientnet-b4  resnet18  resnet34
+
+$ bash scripts/evaluate.sh
+
+$ # ---------------------------------
+
+$ bash scripts/train_hsfd.sh
+$ ls outputs/
+Efficientnet-b0_v1  Efficientnet-b4_v1  resnet18_v1  resnet34_hsfd_not_finetune_not_finetune  resnet34_hsfd_with_finetune  resnet34_v1
+
+$ bash scripts/test_ecust_hsfd.sh
+$ ls widerface_evaluate/predictions/
+Efficientnet-b0  Efficientnet-b4  resnet18  resnet34  resnet34_hsfd_not_finetune.txt  resnet34_hsfd.txt
+
+$ bash scripts/evaluate_ecust_hsfd.sh
+```
